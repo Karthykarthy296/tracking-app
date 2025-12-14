@@ -193,7 +193,7 @@ const StudentDashboard = () => {
                                     </div>
                                 </div>
                                 
-                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                                     <div>
                                         <p className="text-slate-500 text-xs mb-1">Current Stop</p>
                                         <p className="text-slate-300 font-medium truncate">{currentBus.nextStopName || 'En route'}</p>
@@ -203,6 +203,35 @@ const StudentDashboard = () => {
                                          <p className="text-slate-300 font-medium">{assignedVan?.vanNumber || 'Unknown'}</p>
                                     </div>
                                 </div>
+
+                                {/* Progress Bar */}
+                                {assignedRoute && (
+                                    <div>
+                                        <div className="flex justify-between text-xs text-slate-500 mb-2 font-medium">
+                                            <span>Start</span>
+                                            <span>
+                                                {(() => {
+                                                    const idx = assignedRoute.stops.findIndex(s => s.id === currentBus.nextStopId);
+                                                    return idx !== -1 ? Math.round((idx / assignedRoute.stops.length) * 100) : 0;
+                                                })()}% Completed
+                                            </span>
+                                            <span>End</span>
+                                        </div>
+                                        <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden border border-slate-700">
+                                            <div 
+                                                className="bg-blue-500 h-full rounded-full transition-all duration-1000 ease-out relative"
+                                                style={{ 
+                                                    width: `${(() => {
+                                                        const idx = assignedRoute.stops.findIndex(s => s.id === currentBus.nextStopId);
+                                                        return idx !== -1 ? Math.max(5, (idx / assignedRoute.stops.length) * 100) : 5;
+                                                    })()}%` 
+                                                }}
+                                            >
+                                                 <div className="absolute top-0 right-0 bottom-0 w-2 bg-white/50 blur-[2px]"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                              <div className="text-center py-6">
@@ -217,8 +246,8 @@ const StudentDashboard = () => {
                 </div>
 
                 <MapComponent 
-                    center={[12.9716, 77.5946]}
-                    zoom={13}
+                    center={currentBus ? [currentBus.lat, currentBus.lng] : [12.9716, 77.5946]}
+                    zoom={currentBus ? 15 : 13}
                     stops={assignedRoute?.stops || []}
                     buses={buses}
                 />

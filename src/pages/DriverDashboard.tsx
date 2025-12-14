@@ -333,15 +333,20 @@ const DriverDashboard = () => {
                     )}
 
                     {/* Action Buttons */}
+                    {/* Action Buttons */}
                     {!isDriving ? (
                         <button
                             onClick={() => {
                                 setIsDriving(true);
                                 if (user && routeRef.current && vanRef.current) {
+                                     // Start at first stop 
+                                     const firstStop = routeRef.current.stops[0];
+                                     setLocation([firstStop.lat, firstStop.lng]);
+
                                      locationService.updateLocation(user.uid, {
                                         busId: user.uid,
-                                        lat: location?.[0] || 0,
-                                        lng: location?.[1] || 0,
+                                        lat: firstStop.lat,
+                                        lng: firstStop.lng,
                                         speed: 0,
                                         routeId: routeRef.current.id,
                                         vanId: vanRef.current.id,
@@ -366,7 +371,84 @@ const DriverDashboard = () => {
                             </button>
                             
                             <button
-                                onClick={handleManualNext}
+                                onClick={() => {
+                                    if (!assignedRoute) return;
+                                    const stops = assignedRoute.stops || [];
+                                    if (currentStopIndex < stops.length - 1) {
+                                        const nextIndex = currentStopIndex + 1;
+                                        
+                                        // Animate Movement to Next Stop
+                                        const startStop = stops[currentStopIndex];
+                                        const endStop = stops[nextIndex];
+                                        let progress = 0;
+                                        const animationDuration = 2000; // 2 seconds
+                                        const fps = 30;
+                                        const steps = (animationDuration / 1000) * fps;
+                                        const increment = 1 / steps;
+
+                                        const interval = setInterval(() => {
+                                            progress += increment;
+                                            if (progress >= 1) {
+                                                clearInterval(interval);
+                                                // Finalize
+                                                setCurrentStopIndex(nextIndex);
+                                                setArrivalStatus('en_route');
+                                                if (user && vanRef.current) {
+                                                     locationService.updateLocation(user.uid, {
+                                                        busId: user.uid,
+                                                        lat: endStop.lat,
+                                                        lng: endStop.lng,
+                                                        speed: 0,
+                                                        routeId: assignedRoute.id,
+                                                        vanId: vanRef.current?.id || '',
+                                                        nextStopId: endStop.id,
+                                                        nextStopName: endStop.name,
+                                                        arrivalStatus: 'en_route'
+                                                    });
+                                                }
+                                                return;
+                                            }
+
+                                            // Interpolate
+                                            const lat = startStop.lat + (endStop.lat - startStop.lat) * progress;
+                                            const lng = startStop.lng + (endStop.lng - startStop.lng) * progress;
+
+                                            // Update Local State for smooth UI (Runs at 30fps)
+                                            setLocation([lat, lng]);
+
+                                            // Update Firebase Throttled (every ~1s or 30 frames)
+                                            // We use a counter ref or just check progress steps to avoid state dependency if possible, 
+                                            // but inside interval we need to be careful. 
+                                            // Simplest: Check if we just crossed a 5% threshold or use a counter.
+                                            // Let's use a simpler heuristic: Only update DB every 30 ticks (approx 1 sec)
+                                            if ((progress * steps) % 30 < 1 && user && vanRef.current) {
+                                                locationService.updateLocation(user.uid, {
+                                                    busId: user.uid,
+                                                    lat,
+                                                    lng,
+                                                    speed: 40,
+                                                    routeId: assignedRoute.id,
+                                                    vanId: vanRef.current?.id || '',
+                                                    nextStopId: endStop.id,
+                                                    nextStopName: endStop.name,
+                                                    arrivalStatus: 'en_route'
+                                                });
+                                            }
+                                        }, 1000 / fps);
+                                    } else {
+                                        alert("End of Route Reached");
+                                        setIsDriving(false);
+                                        setCurrentStopIndex(0);
+                                         locationService.updateLocation(user?.uid || '', { 
+                                            busId: user?.uid || '',
+                                            lat: 0, 
+                                            lng: 0,
+                                            routeId: '',
+                                            updatedAt: Date.now(),
+                                            isOnline: false
+                                        } as any);
+                                    }
+                                }}
                                 className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-900/20 flex flex-col items-center justify-center gap-1 transition-all active:scale-95"
                             >
                                 <Navigation size={24} />
