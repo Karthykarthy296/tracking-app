@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "locations": {
+      ".read": "auth != null",
+      "$busId": {
+        // Bus (Driver) can write their own location
+        ".write": "auth != null && auth.uid === $busId",
+        ".validate": "newData.hasChildren(['lat', 'lng', 'updatedAt'])"
+      }
+    }
+  }
+}
