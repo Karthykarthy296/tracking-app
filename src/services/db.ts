@@ -1,7 +1,7 @@
-import { collection, addDoc, getDocs } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, doc, setDoc } from 'firebase/firestore';
 import { ref, set, onValue, off } from 'firebase/database';
 import { db, rtdb } from '../lib/firebase';
-import type { Route, Stop, BusLocation } from '../types';
+import type { Route, Stop, BusLocation, UserProfile, Van } from '../types';
 
 // Routes Service
 export const routeService = {
@@ -15,6 +15,11 @@ export const routeService = {
     return { id: routeRef.id, name, stops };
   },
 
+  updateRoute: async (id: string, data: Partial<Route>) => {
+    const routeRef = doc(db, 'routes', id);
+    await setDoc(routeRef, data, { merge: true });
+  },
+
   // Get all routes
   getAllRoutes: async (): Promise<Route[]> => {
     const querySnapshot = await getDocs(collection(db, 'routes'));
@@ -26,6 +31,63 @@ export const routeService = {
   
   // Create a stop (if stops are managed independently)
   // For simplicity, we embed stops in routes or manage them separately.
+};
+
+// User Service
+export const userService = {
+    // Get users by role
+    getUsersByRole: async (role: 'student' | 'driver') => {
+        const q = query(collection(db, 'users'), where('role', '==', role));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({
+            uid: doc.id,
+            ...doc.data()
+        } as UserProfile));
+    },
+
+    // Create/Update user profile (admin side)
+    // Note: This only creates the Firestore profile. Auth creation is separate.
+    updateUserProfile: async (uid: string, data: Partial<UserProfile>) => {
+        const userRef = doc(db, 'users', uid);
+        await setDoc(userRef, data, { merge: true });
+    },
+
+    // Create new user profile
+    createUserProfile: async (data: UserProfile) => {
+        // Use provided uid or auto-generate if simulating
+        const uid = data.uid || doc(collection(db, 'users')).id;
+        await setDoc(doc(db, 'users', uid), { ...data, uid });
+    }
+};
+
+// Van Service
+export const vanService = {
+  getAllVans: async (): Promise<Van[]> => {
+    const querySnapshot = await getDocs(collection(db, 'vans'));
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Van));
+  },
+  
+  createVan: async (vanNumber: string, capacity?: number, routeId?: string) => {
+    const vanRef = await addDoc(collection(db, 'vans'), {
+      vanNumber,
+      capacity: capacity || 20,
+      routeId: routeId || '',
+      createdAt: new Date()
+    });
+    return { id: vanRef.id, vanNumber, capacity, routeId };
+  },
+
+  updateVan: async (id: string, data: Partial<Van>) => {
+    const vanRef = doc(db, 'vans', id);
+    await setDoc(vanRef, data, { merge: true });
+  },
+
+  deleteVan: async (id: string) => {
+      // Logic for delete if needed using deleteDoc
+  }
 };
 
 // Location Service (Realtime DB)

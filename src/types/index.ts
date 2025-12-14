@@ -5,7 +5,18 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   name?: string;
-  routeId?: string; // For students (subscribed) and drivers (assigned)
+  // routeId is now derived from vanId for drivers, or assigned to van for students
+  routeId?: string; 
+  vanId?: string;
+  studentName?: string;
+  studentId?: string;
+}
+
+export interface Van {
+  id: string;
+  vanNumber: string;
+  capacity?: number;
+  routeId?: string;
 }
 
 export interface Route {
@@ -26,7 +37,14 @@ export interface BusLocation {
   lat: number;
   lng: number;
   routeId: string;
+  vanId?: string;
   speed?: number; // m/s
   updatedAt: number; // timestamp
   isOnline: boolean;
+  
+  // Trip Status
+  nextStopId?: string;
+  nextStopName?: string;
+  arrivalStatus?: 'en_route' | 'arriving' | 'arrived';
+  lastUpdatedStopId?: string;
 }

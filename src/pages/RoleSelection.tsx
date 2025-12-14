@@ -7,11 +7,17 @@ import type { UserRole } from '../types';
 import { Bus, UserCheck } from 'lucide-react';
 
 const RoleSelection = () => {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const navigate = useNavigate();
   const [role, setRole] = useState<UserRole>('student');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    if (userProfile?.role) {
+        navigate('/', { replace: true });
+    }
+  }, [userProfile, navigate]);
 
   if (!user) {
     navigate('/login');
