@@ -52,6 +52,23 @@ const DriverManager = () => {
         }
     };
 
+    const handleDelete = async (uid: string) => {
+        console.log("Attempting to delete driver with UID:", uid);
+        if (!window.confirm("Are you sure you want to delete this driver?")) {
+            console.log("Delete cancelled by user");
+            return;
+        }
+        try {
+            console.log("Calling deleteUser...");
+            await userService.deleteUser(uid);
+            console.log("DeleteUser completed. Reloading data...");
+            loadData();
+        } catch (error) {
+            console.error("Error deleting driver:", error);
+            alert("Failed to delete driver: " + (error as any).message);
+        }
+    };
+
     const startEdit = (driver: UserProfile) => {
         setIsEditing(true);
         setEditId(driver.uid);
@@ -95,6 +112,12 @@ const DriverManager = () => {
                                                 className="text-blue-600 hover:underline"
                                             >
                                                 Edit
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDelete(driver.uid)}
+                                                className="text-red-600 hover:underline ml-2"
+                                            >
+                                                Delete
                                             </button>
                                         </td>
                                     </tr>

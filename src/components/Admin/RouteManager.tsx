@@ -15,8 +15,11 @@ const RouteManager = () => {
     
     // Stop form
     const [stopName, setStopName] = useState('');
-    const [stopLat, setStopLat] = useState('12.9716');
-    const [stopLng, setStopLng] = useState('77.5946');
+    const [stopLat, setStopLat] = useState('');
+    const [stopLng, setStopLng] = useState('');
+    const [tempMarker, setTempMarker] = useState<[number, number] | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [mapCenter, setMapCenter] = useState<[number, number]>([12.9716, 77.5946]);
 
     useEffect(() => {
         loadRoutes();
@@ -39,7 +42,44 @@ const RouteManager = () => {
         };
         setStops([...stops, newStop]);
         setStopName('');
-        // Keep lat/lng for potentially adding nearby stop
+        setTempMarker(null);
+        // Keep lat/lng for potentially adding nearby stop or clear them? 
+        // User requested: "Prevent adding a stop if the map is not clicked." -> implicitly suggesting reset or explicit check.
+        // Let's reset them to force click for next stop as per "Prevent adding... if map is not clicked" spirit.
+        setStopLat('');
+        setStopLng('');
+    };
+
+    const handleMapClick = (lat: number, lng: number) => {
+        setStopLat(lat.toFixed(6));
+        setStopLng(lng.toFixed(6));
+        setTempMarker([lat, lng]);
+    };
+
+    const handleSearch = async () => {
+        if (!searchQuery) return;
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`);
+            const data = await response.json();
+            if (data && data.length > 0) {
+                const { lat, lon, display_name, name } = data[0];
+                const newLat = parseFloat(lat);
+                const newLng = parseFloat(lon);
+                setMapCenter([newLat, newLng]);
+                setTempMarker([newLat, newLng]);
+                setStopLat(newLat.toFixed(6));
+                setStopLng(newLng.toFixed(6));
+                
+                // Content strategy: Use specific name if available, else first part of display_name
+                const placeName = name || display_name.split(',')[0];
+                setStopName(placeName);
+            } else {
+                alert('Location not found');
+            }
+        } catch (error) {
+            console.error("Search error:", error);
+            alert('Error searching for location');
+        }
     };
 
     const handleSaveRoute = async () => {
@@ -54,6 +94,9 @@ const RouteManager = () => {
             setRouteName('');
             setStops([]);
             setEditId(null);
+            setTempMarker(null);
+            setStopLat('');
+            setStopLng('');
             setView('list');
             loadRoutes();
         } catch (e) {
@@ -66,6 +109,9 @@ const RouteManager = () => {
         setEditId(route.id);
         setRouteName(route.name);
         setStops(route.stops);
+        setTempMarker(null);
+        setStopLat('');
+        setStopLng('');
         setView('create');
     };
 
@@ -73,6 +119,9 @@ const RouteManager = () => {
         setEditId(null);
         setRouteName('');
         setStops([]);
+        setTempMarker(null);
+        setStopLat('');
+        setStopLng('');
         setView('list');
     };
 
@@ -92,6 +141,9 @@ const RouteManager = () => {
                             setEditId(null);
                             setRouteName('');
                             setStops([]);
+                            setTempMarker(null);
+                            setStopLat('');
+                            setStopLng('');
                             setView('create');
                         }}
                         className={`px-4 py-2 rounded ${view === 'create' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border'}`}
@@ -149,16 +201,18 @@ const RouteManager = () => {
                                 />
                                 <div className="flex gap-2">
                                     <input 
-                                        className="border p-2 rounded w-1/2" 
+                                        className="border p-2 rounded w-1/2 bg-gray-100 cursor-not-allowed" 
                                         value={stopLat} 
-                                        onChange={e => setStopLat(e.target.value)} 
-                                        placeholder="Lat"
+                                        // onChange={e => setStopLat(e.target.value)} // Disabled manual input
+                                        readOnly
+                                        placeholder="Click on Map"
                                     />
                                     <input 
-                                        className="border p-2 rounded w-1/2" 
+                                        className="border p-2 rounded w-1/2 bg-gray-100 cursor-not-allowed" 
                                         value={stopLng} 
-                                        onChange={e => setStopLng(e.target.value)} 
-                                        placeholder="Lng"
+                                        // onChange={e => setStopLng(e.target.value)} // Disabled manual input
+                                        readOnly
+                                        placeholder="Click on Map"
                                     />
                                 </div>
                             </div>
@@ -200,11 +254,27 @@ const RouteManager = () => {
                             </div>
                         </div>
                         
-                        <div className="flex-1 h-96 bg-gray-50 rounded border">
-                            {/* Map Preview could go here */}
+                        <div className="flex-1 h-96 bg-gray-50 rounded border flex flex-col">
+                            <div className="p-2 border-b flex gap-2">
+                                <input 
+                                    className="flex-1 border p-1 rounded text-sm"
+                                    placeholder="Search for a city or place..."
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                                />
+                                <button 
+                                    onClick={handleSearch}
+                                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                                >
+                                    Search
+                                </button>
+                            </div>
                              <MapComponent 
                                 stops={stops} 
-                                center={[parseFloat(stopLat || '12.9716'), parseFloat(stopLng || '77.5946')]} 
+                                center={mapCenter} 
+                                tempMarker={tempMarker}
+                                onMapClick={handleMapClick}
                              />
                         </div>
                     </div>

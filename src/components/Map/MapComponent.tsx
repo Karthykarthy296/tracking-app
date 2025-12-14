@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import type { Stop, BusLocation } from '../../types';
 
@@ -38,6 +38,8 @@ interface MapComponentProps {
   buses?: BusLocation[];
   onStopClick?: (stop: Stop) => void;
   onBusClick?: (bus: BusLocation) => void;
+  onMapClick?: (lat: number, lng: number) => void;
+  tempMarker?: [number, number] | null;
   userLocation?: [number, number];
 }
 
@@ -49,6 +51,15 @@ const RecenterMap = ({ center }: { center: [number, number] }) => {
   return null;
 };
 
+const MapClickHandler = ({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) => {
+  useMapEvents({
+    click: (e) => {
+        onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+};
+
 const MapComponent: React.FC<MapComponentProps> = ({ 
   center = [12.9716, 77.5946], // Default to Bangalore (as per user timezone inference)
   zoom = 13, 
@@ -56,6 +67,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
   buses = [],
   onStopClick,
   onBusClick,
+  onMapClick,
+  tempMarker,
   userLocation
 }) => {
   return (
@@ -66,6 +79,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
       />
       
       <RecenterMap center={center} />
+      
+      {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
 
       {/* Bus Stops */}
       {stops.map((stop) => (
@@ -78,6 +93,17 @@ const MapComponent: React.FC<MapComponentProps> = ({
           <Popup>{stop.name}</Popup>
         </Marker>
       ))}
+
+      {/* Temp Marker */}
+      {tempMarker && (
+          <Marker 
+            position={tempMarker} 
+            icon={stopIcon} // Reuse stop icon for temp marker
+            opacity={0.7}
+          >
+              <Popup>New Stop Location</Popup>
+          </Marker>
+      )}
 
       {/* Buses */}
       {buses.map((bus) => (

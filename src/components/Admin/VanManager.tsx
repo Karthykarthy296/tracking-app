@@ -53,6 +53,23 @@ const VanManager = () => {
         }
     };
 
+    const handleDelete = async (id: string) => {
+        console.log("Attempting to delete van with ID:", id);
+        if (!window.confirm("Are you sure you want to delete this van?")) {
+            console.log("Delete cancelled by user");
+            return;
+        }
+        try {
+            console.log("Calling deleteVan...");
+            await vanService.deleteVan(id);
+            console.log("DeleteVan completed. Reloading data...");
+            loadData();
+        } catch (error) {
+            console.error("Error deleting van:", error);
+            alert("Failed to delete van: " + (error as any).message);
+        }
+    };
+
     const handleEdit = (van: Van) => {
         setEditId(van.id);
         setVanNumber(van.vanNumber);
@@ -99,6 +116,12 @@ const VanManager = () => {
                                                 className="text-blue-600 hover:underline"
                                             >
                                                 Edit
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDelete(van.id)}
+                                                className="text-red-600 hover:underline ml-2"
+                                            >
+                                                Delete
                                             </button>
                                         </td>
                                     </tr>

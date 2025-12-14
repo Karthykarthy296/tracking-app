@@ -53,6 +53,23 @@ const StudentManager = () => {
         }
     };
 
+    const handleDelete = async (uid: string) => {
+        console.log("Attempting to delete student with UID:", uid);
+        if (!window.confirm("Are you sure you want to delete this student?")) {
+            console.log("Delete cancelled by user");
+            return;
+        }
+        try {
+            console.log("Calling deleteUser...");
+            await userService.deleteUser(uid);
+            console.log("DeleteUser completed. Reloading data...");
+            loadData();
+        } catch (error) {
+            console.error("Error deleting student:", error);
+            alert("Failed to delete student: " + (error as any).message);
+        }
+    };
+
     const startEdit = (student: UserProfile) => {
         setIsEditing(true);
         setEditId(student.uid);
@@ -93,9 +110,15 @@ const StudentManager = () => {
                                         <td className="p-2">
                                             <button 
                                                 onClick={() => startEdit(student)}
-                                                className="text-blue-600 hover:underline"
+                                                className="text-blue-600 hover:underline mr-2"
                                             >
                                                 Edit
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDelete(student.uid)}
+                                                className="text-red-600 hover:underline"
+                                            >
+                                                Delete
                                             </button>
                                         </td>
                                     </tr>

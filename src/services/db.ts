@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, where, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { ref, set, onValue, off } from 'firebase/database';
 import { db, rtdb } from '../lib/firebase';
 import type { Route, Stop, BusLocation, UserProfile, Van } from '../types';
@@ -57,6 +57,10 @@ export const userService = {
         // Use provided uid or auto-generate if simulating
         const uid = data.uid || doc(collection(db, 'users')).id;
         await setDoc(doc(db, 'users', uid), { ...data, uid });
+    },
+
+    deleteUser: async (uid: string) => {
+        await deleteDoc(doc(db, 'users', uid));
     }
 };
 
@@ -86,7 +90,7 @@ export const vanService = {
   },
 
   deleteVan: async (id: string) => {
-      // Logic for delete if needed using deleteDoc
+      await deleteDoc(doc(db, 'vans', id));
   }
 };
 
