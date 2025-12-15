@@ -163,41 +163,7 @@ const DriverDashboard = () => {
         };
     }, [isDriving, user]); // Removed assignedRoute/Van from deps as we use Refs now
 
-    const handleManualNext = () => {
-        if (!assignedRoute) return;
-        const stops = assignedRoute.stops || [];
-        if (currentStopIndex < stops.length - 1) {
-            const nextIndex = currentStopIndex + 1;
-            setCurrentStopIndex(nextIndex);
-            setArrivalStatus('en_route');
 
-            // Force Update for Manual Next
-            if (user && assignedVan) {
-                 locationService.updateLocation(user.uid, {
-                    busId: user.uid,
-                    lat: location?.[0] || 0,
-                    lng: location?.[1] || 0,
-                    routeId: assignedRoute.id,
-                    vanId: assignedVan.id,
-                    nextStopId: assignedRoute.stops[nextIndex].id,
-                    nextStopName: assignedRoute.stops[nextIndex].name,
-                    arrivalStatus: 'en_route'
-                });
-            }
-        } else {
-            alert("End of Route Reached");
-            setIsDriving(false);
-            setCurrentStopIndex(0);
-             locationService.updateLocation(user?.uid || '', { 
-                busId: user?.uid || '',
-                lat: 0, 
-                lng: 0,
-                routeId: '',
-                updatedAt: Date.now(),
-                isOnline: false
-            } as any);
-        }
-    };
 
     const handleManualArrived = () => {
         setArrivalStatus('arriving'); // Or 'arrived' if we differentiate

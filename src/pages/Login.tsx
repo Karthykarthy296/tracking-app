@@ -5,7 +5,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types';
-import { Bus, User, KeyRound, Lock, Mail, ArrowRight } from 'lucide-react';
+import { Bus, User, Lock, Mail, ArrowRight } from 'lucide-react';
 
 const Login = () => {
   const { signInWithGoogle } = useAuth();
