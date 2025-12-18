@@ -8,7 +8,7 @@ import type { UserRole } from '../types';
 import { Bus, User, Lock, Mail, ArrowRight } from 'lucide-react';
 
 const Login = () => {
-  const { signInWithGoogle } = useAuth();
+  useAuth();
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -55,19 +55,6 @@ const Login = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-      setError('');
-      setLoading(true);
-      try {
-          await signInWithGoogle();
-          navigate('/');
-      } catch (err: any) {
-          console.error("Google Login error", err);
-          setError(err.message);
-      } finally {
-          setLoading(false);
-      }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-slate-900">
@@ -99,26 +86,6 @@ const Login = () => {
           </div>
         )}
         
-        <div className="mb-6">
-            <button
-                onClick={handleGoogleLogin}
-                type="button"
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-3 bg-white text-gray-800 hover:bg-gray-50 font-semibold py-3 px-4 rounded-xl transition-all duration-200 shadow-sm transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-                <span>Continue with Google</span>
-            </button>
-            
-            <div className="relative my-8">
-                <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-white/10"></div>
-                </div>
-                <div className="relative flex justify-center text-xs uppercase tracking-wider font-semibold">
-                    <span className="px-4 bg-transparent text-slate-400">Or continue with ID</span>
-                </div>
-            </div>
-        </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {!isLogin && (

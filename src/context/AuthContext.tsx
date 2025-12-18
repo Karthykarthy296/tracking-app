@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signOut as firebaseSignOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
@@ -10,7 +10,6 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   logout: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,7 +17,6 @@ const AuthContext = createContext<AuthContextType>({
   userProfile: null,
   loading: true,
   logout: async () => {},
-  signInWithGoogle: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -61,11 +59,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     await firebaseSignOut(auth);
   };
-  
-  const signInWithGoogle = async () => {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-  };
 
   if (loading) {
     return (
@@ -79,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, logout, signInWithGoogle }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, logout }}>
       {children}
     </AuthContext.Provider>
   );
