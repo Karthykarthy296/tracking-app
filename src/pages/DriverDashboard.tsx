@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { routeService, locationService, vanService } from '../services/db';
+import { routeService, locationService, vanService, alertService } from '../services/db';
 import type { Route, Van } from '../types';
 import { calculateDistance } from '../utils/geo';
 import { Bus, MapPin, Navigation } from 'lucide-react';
@@ -8,7 +8,7 @@ import MapComponent from '../components/Map/MapComponent';
 
 const DriverDashboard = () => {
     const { user, userProfile, logout } = useAuth();
-    
+
     // Data State
     const [assignedVan, setAssignedVan] = useState<Van | null>(null);
     const [assignedRoute, setAssignedRoute] = useState<Route | null>(null);
@@ -18,7 +18,7 @@ const DriverDashboard = () => {
     const [isDriving, setIsDriving] = useState(false);
     const [currentStopIndex, setCurrentStopIndex] = useState(0);
     const [arrivalStatus, setArrivalStatus] = useState<'en_route' | 'arriving' | 'arrived'>('en_route');
-    
+
     // Location State
     const [location, setLocation] = useState<[number, number] | null>(null);
     const [watchId, setWatchId] = useState<number | null>(null);
@@ -29,6 +29,13 @@ const DriverDashboard = () => {
     const stopIndexRef = useRef(0);
     const drivingRef = useRef(false);
 
+    // Stoppage Detection Refs
+    const lastMovementTimeRef = useRef<number>(Date.now());
+    const lastLocationRef = useRef<[number, number] | null>(null);
+    const alertSentRef = useRef(false);
+    const STOPPAGE_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+    const MOVEMENT_THRESHOLD_M = 30; // 30 meters
+
     useEffect(() => {
         const loadAssignment = async () => {
             if (!userProfile?.vanId) {
@@ -38,11 +45,11 @@ const DriverDashboard = () => {
 
             try {
                 // 1. Get Van to find RouteId
-                const vans = await vanService.getAllVans(); 
+                const vans = await vanService.getAllVans();
                 // Optimization: In real app, fetch single van by ID. 
                 // For now, finding in list is fine for small scale.
                 const myVan = vans.find(v => v.id === userProfile.vanId);
-                
+
                 if (myVan) {
                     setAssignedVan(myVan);
                     vanRef.current = myVan; // Update Ref
@@ -82,7 +89,23 @@ const DriverDashboard = () => {
                 (pos) => {
                     const { latitude, longitude, speed } = pos.coords;
                     setLocation([latitude, longitude]);
-                    
+
+                    // Stoppage Detection Logic
+                    const currentTime = Date.now();
+                    const lastLoc = lastLocationRef.current;
+
+                    if (lastLoc) {
+                        const dist = calculateDistance(latitude, longitude, lastLoc[0], lastLoc[1]);
+                        if (dist > MOVEMENT_THRESHOLD_M) { // Use constant
+                            lastMovementTimeRef.current = currentTime;
+                            lastLocationRef.current = [latitude, longitude];
+                            alertSentRef.current = false; // Reset alert flag if moved
+                        }
+                    } else {
+                        lastLocationRef.current = [latitude, longitude];
+                        lastMovementTimeRef.current = currentTime;
+                    }
+
                     const route = routeRef.current;
                     const van = vanRef.current;
                     const index = stopIndexRef.current;
@@ -95,18 +118,18 @@ const DriverDashboard = () => {
                         const stop = route.stops[index];
                         nextStopId = stop.id;
                         nextStopName = stop.name;
-                        
+
                         const distToStop = calculateDistance(latitude, longitude, stop.lat, stop.lng);
-                        
+
                         // If within 100m, mark as arriving
                         if (distToStop < 100) {
                             status = 'arriving';
                             // Note: We don't auto-advance to "Arrived" or next stop to avoid skipping. 
                             // Using "Arriving" alerts parents. Driver manually confirms arrival usually.
                             // But request asked for auto updates - let's set arriving status.
-                            setArrivalStatus('arriving'); 
+                            setArrivalStatus('arriving');
                         } else {
-                             setArrivalStatus('en_route');
+                            setArrivalStatus('en_route');
                         }
                     }
 
@@ -129,12 +152,12 @@ const DriverDashboard = () => {
             );
             setWatchId(id);
         } else {
-             if (watchId !== null) {
-                 navigator.geolocation.clearWatch(watchId);
-                 setWatchId(null);
-             }
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                setWatchId(null);
+            }
         }
-        
+
         // Heartbeat to ensure status is live even if stationary
         let heartbeatInterval: any;
         if (isDriving && user) {
@@ -163,13 +186,50 @@ const DriverDashboard = () => {
         };
     }, [isDriving, user]); // Removed assignedRoute/Van from deps as we use Refs now
 
+    // Background Stoppage Check (Independent of Location Updates)
+    useEffect(() => {
+        if (!isDriving) return;
+
+        const intervalId = setInterval(async () => {
+            const timeStopped = Date.now() - lastMovementTimeRef.current;
+
+            if (timeStopped > STOPPAGE_LIMIT_MS && !alertSentRef.current && isDriving) {
+                console.warn("Stoppage Detected! Triggering Alert...");
+                alertSentRef.current = true;
+
+                if (user && vanRef.current) {
+                    try {
+                        const locationToReport = location ? { lat: location[0], lng: location[1] } : { lat: 0, lng: 0 };
+
+                        await alertService.createAlert({
+                            busId: user.uid,
+                            vanId: vanRef.current.id,
+                            routeId: routeRef.current?.id || '',
+                            location: locationToReport,
+                            startTime: lastMovementTimeRef.current,
+                            detectedAt: Date.now(),
+                            message: `STOPPAGE ALERT: Bus ${vanRef.current.vanNumber} stopped for > 5 min.`,
+                            isResolved: false
+                        });
+                        alert("⚠️ Safety Alert: Automatic Stoppage Detected & Reported to Admin.");
+                    } catch (e) {
+                        console.error("Failed to send alert", e);
+                    }
+                }
+            }
+        }, 10000); // Check every 10 seconds
+
+        return () => clearInterval(intervalId);
+    }, [isDriving, location]); // Dependencies
+
+
 
 
     const handleManualArrived = () => {
         setArrivalStatus('arriving'); // Or 'arrived' if we differentiate
         // Force update location with status
         if (location && user) {
-             locationService.updateLocation(user.uid, {
+            locationService.updateLocation(user.uid, {
                 busId: user.uid,
                 lat: location[0],
                 lng: location[1],
@@ -200,12 +260,12 @@ const DriverDashboard = () => {
                     </div>
                     <h1 className="text-2xl font-bold text-white mb-2">No Assignment Found</h1>
                     <p className="text-slate-400 mb-6">Please contact your administrator to assign a Van and Route to your profile before starting.</p>
-                    
+
                     <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 text-left text-sm space-y-2 mb-6">
-                         <p className="text-slate-500">Role: <span className="text-slate-300">{userProfile?.role}</span></p>
-                         <p className="text-slate-500">Van ID: <span className="text-slate-300">{userProfile?.vanId || 'None'}</span></p>
+                        <p className="text-slate-500">Role: <span className="text-slate-300">{userProfile?.role}</span></p>
+                        <p className="text-slate-500">Van ID: <span className="text-slate-300">{userProfile?.vanId || 'None'}</span></p>
                     </div>
-                    
+
                     <button onClick={logout} className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-colors">
                         Logout
                     </button>
@@ -221,7 +281,7 @@ const DriverDashboard = () => {
         <div className="relative w-full h-screen bg-slate-900 overflow-hidden">
             {/* Full Screen Map */}
             <div className="absolute inset-0 z-0">
-                <MapComponent 
+                <MapComponent
                     center={location || [12.9716, 77.5946]}
                     zoom={17}
                     stops={assignedRoute.stops || []}
@@ -248,8 +308,8 @@ const DriverDashboard = () => {
                     </div>
                 </div>
 
-                <button 
-                    onClick={logout} 
+                <button
+                    onClick={logout}
                     className="pointer-events-auto bg-slate-900/90 backdrop-blur-md hover:bg-red-500/90 hover:border-red-500 border border-slate-700 text-slate-300 hover:text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-all shadow-lg"
                 >
                     Logout
@@ -259,7 +319,7 @@ const DriverDashboard = () => {
             {/* Controls Panel */}
             <div className="absolute bottom-6 left-6 right-6 z-20 flex justify-center pointer-events-none">
                 <div className="w-full max-w-2xl bg-slate-900/95 backdrop-blur-xl p-6 rounded-3xl border border-slate-700 shadow-2xl pointer-events-auto transition-all">
-                    
+
                     {/* Status Bar */}
                     <div className="grid grid-cols-2 gap-4 mb-6">
                         <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
@@ -272,8 +332,8 @@ const DriverDashboard = () => {
                             </div>
                         </div>
                         <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 text-right">
-                             <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Next Stop</p>
-                             <p className="font-bold text-lg text-blue-400 truncate">
+                            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Next Stop</p>
+                            <p className="font-bold text-lg text-blue-400 truncate">
                                 {currentStop?.name || 'End of Route'}
                             </p>
                         </div>
@@ -288,8 +348,8 @@ const DriverDashboard = () => {
                                 <span>End</span>
                             </div>
                             <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700/50">
-                                <div 
-                                    className="bg-gradient-to-r from-blue-600 to-violet-500 h-full rounded-full transition-all duration-700 ease-out relative" 
+                                <div
+                                    className="bg-gradient-to-r from-blue-600 to-violet-500 h-full rounded-full transition-all duration-700 ease-out relative"
                                     style={{ width: `${Math.max(5, ((currentStopIndex) / (assignedRoute.stops?.length || 1)) * 100)}%` }}
                                 >
                                     <div className="absolute top-0 right-0 bottom-0 w-1 bg-white/50 blur-[2px]"></div>
@@ -305,11 +365,11 @@ const DriverDashboard = () => {
                             onClick={() => {
                                 setIsDriving(true);
                                 if (user && routeRef.current && vanRef.current) {
-                                     // Start at first stop 
-                                     const firstStop = routeRef.current.stops[0];
-                                     setLocation([firstStop.lat, firstStop.lng]);
+                                    // Start at first stop 
+                                    const firstStop = routeRef.current.stops[0];
+                                    setLocation([firstStop.lat, firstStop.lng]);
 
-                                     locationService.updateLocation(user.uid, {
+                                    locationService.updateLocation(user.uid, {
                                         busId: user.uid,
                                         lat: firstStop.lat,
                                         lng: firstStop.lng,
@@ -335,14 +395,14 @@ const DriverDashboard = () => {
                                 <MapPin size={24} />
                                 <span className="text-sm">MARK ARRIVED</span>
                             </button>
-                            
+
                             <button
                                 onClick={() => {
                                     if (!assignedRoute) return;
                                     const stops = assignedRoute.stops || [];
                                     if (currentStopIndex < stops.length - 1) {
                                         const nextIndex = currentStopIndex + 1;
-                                        
+
                                         // Animate Movement to Next Stop
                                         const startStop = stops[currentStopIndex];
                                         const endStop = stops[nextIndex];
@@ -360,7 +420,7 @@ const DriverDashboard = () => {
                                                 setCurrentStopIndex(nextIndex);
                                                 setArrivalStatus('en_route');
                                                 if (user && vanRef.current) {
-                                                     locationService.updateLocation(user.uid, {
+                                                    locationService.updateLocation(user.uid, {
                                                         busId: user.uid,
                                                         lat: endStop.lat,
                                                         lng: endStop.lng,
@@ -405,9 +465,9 @@ const DriverDashboard = () => {
                                         alert("End of Route Reached");
                                         setIsDriving(false);
                                         setCurrentStopIndex(0);
-                                         locationService.updateLocation(user?.uid || '', { 
+                                        locationService.updateLocation(user?.uid || '', {
                                             busId: user?.uid || '',
-                                            lat: 0, 
+                                            lat: 0,
                                             lng: 0,
                                             routeId: '',
                                             updatedAt: Date.now(),
@@ -426,9 +486,9 @@ const DriverDashboard = () => {
                                     if (confirm("End trip and go offline?")) {
                                         setIsDriving(false);
                                         setCurrentStopIndex(0);
-                                        locationService.updateLocation(user?.uid || '', { 
+                                        locationService.updateLocation(user?.uid || '', {
                                             busId: user?.uid || '',
-                                            lat: 0, 
+                                            lat: 0,
                                             lng: 0,
                                             routeId: '',
                                             updatedAt: Date.now(),

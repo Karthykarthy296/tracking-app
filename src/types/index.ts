@@ -6,7 +6,7 @@ export interface UserProfile {
   role: UserRole;
   name?: string;
   // routeId is now derived from vanId for drivers, or assigned to van for students
-  routeId?: string; 
+  routeId?: string;
   vanId?: string;
   studentName?: string;
   studentId?: string;
@@ -41,10 +41,22 @@ export interface BusLocation {
   speed?: number; // m/s
   updatedAt: number; // timestamp
   isOnline: boolean;
-  
+
   // Trip Status
   nextStopId?: string;
   nextStopName?: string;
   arrivalStatus?: 'en_route' | 'arriving' | 'arrived';
   lastUpdatedStopId?: string;
+}
+
+export interface StoppageAlert {
+  id: string;
+  busId: string;
+  vanId: string;
+  routeId: string;
+  location: { lat: number, lng: number };
+  startTime: number;
+  detectedAt: number;
+  message: string;
+  isResolved: boolean;
 }

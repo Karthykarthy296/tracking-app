@@ -1,7 +1,7 @@
 import { collection, addDoc, getDocs, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { ref, set, onValue, off } from 'firebase/database';
+import { ref, set, onValue, off, push, update } from 'firebase/database';
 import { db, rtdb } from '../lib/firebase';
-import type { Route, Stop, BusLocation, UserProfile, Van } from '../types';
+import type { Route, Stop, BusLocation, UserProfile, Van, StoppageAlert } from '../types';
 
 // Routes Service
 export const routeService = {
@@ -28,40 +28,40 @@ export const routeService = {
       ...doc.data()
     } as Route));
   },
-  
+
   // Create a stop (if stops are managed independently)
   // For simplicity, we embed stops in routes or manage them separately.
 };
 
 // User Service
 export const userService = {
-    // Get users by role
-    getUsersByRole: async (role: 'student' | 'driver') => {
-        const q = query(collection(db, 'users'), where('role', '==', role));
-        const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => ({
-            uid: doc.id,
-            ...doc.data()
-        } as UserProfile));
-    },
+  // Get users by role
+  getUsersByRole: async (role: 'student' | 'driver') => {
+    const q = query(collection(db, 'users'), where('role', '==', role));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      uid: doc.id,
+      ...doc.data()
+    } as UserProfile));
+  },
 
-    // Create/Update user profile (admin side)
-    // Note: This only creates the Firestore profile. Auth creation is separate.
-    updateUserProfile: async (uid: string, data: Partial<UserProfile>) => {
-        const userRef = doc(db, 'users', uid);
-        await setDoc(userRef, data, { merge: true });
-    },
+  // Create/Update user profile (admin side)
+  // Note: This only creates the Firestore profile. Auth creation is separate.
+  updateUserProfile: async (uid: string, data: Partial<UserProfile>) => {
+    const userRef = doc(db, 'users', uid);
+    await setDoc(userRef, data, { merge: true });
+  },
 
-    // Create new user profile
-    createUserProfile: async (data: UserProfile) => {
-        // Use provided uid or auto-generate if simulating
-        const uid = data.uid || doc(collection(db, 'users')).id;
-        await setDoc(doc(db, 'users', uid), { ...data, uid });
-    },
+  // Create new user profile
+  createUserProfile: async (data: UserProfile) => {
+    // Use provided uid or auto-generate if simulating
+    const uid = data.uid || doc(collection(db, 'users')).id;
+    await setDoc(doc(db, 'users', uid), { ...data, uid });
+  },
 
-    deleteUser: async (uid: string) => {
-        await deleteDoc(doc(db, 'users', uid));
-    }
+  deleteUser: async (uid: string) => {
+    await deleteDoc(doc(db, 'users', uid));
+  }
 };
 
 // Van Service
@@ -73,7 +73,7 @@ export const vanService = {
       ...doc.data()
     } as Van));
   },
-  
+
   createVan: async (vanNumber: string, capacity?: number, routeId?: string) => {
     const vanRef = await addDoc(collection(db, 'vans'), {
       vanNumber,
@@ -90,7 +90,7 @@ export const vanService = {
   },
 
   deleteVan: async (id: string) => {
-      await deleteDoc(doc(db, 'vans', id));
+    await deleteDoc(doc(db, 'vans', id));
   }
 };
 
@@ -131,5 +131,31 @@ export const locationService = {
       }));
       callback(buses);
     });
+  }
+};
+
+export const alertService = {
+  createAlert: async (alert: Omit<StoppageAlert, 'id'>) => {
+    const alertsRef = ref(rtdb, 'alerts');
+    const newAlertRef = push(alertsRef);
+    await set(newAlertRef, { ...alert, id: newAlertRef.key, isResolved: false });
+    return newAlertRef.key;
+  },
+
+  subscribeToAlerts: (callback: (alerts: StoppageAlert[]) => void) => {
+    const alertsRef = ref(rtdb, 'alerts');
+    const unsubscribe = onValue(alertsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) {
+        callback([]);
+        return;
+      }
+      const alerts = Object.keys(data).map(key => ({
+        id: key,
+        ...data[key]
+      })).sort((a, b) => b.detectedAt - a.detectedAt);
+      callback(alerts as StoppageAlert[]);
+    });
+    return () => off(alertsRef, 'value', unsubscribe);
   }
 };
