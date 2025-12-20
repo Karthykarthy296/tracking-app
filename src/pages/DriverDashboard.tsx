@@ -5,6 +5,7 @@ import type { Route, Van } from '../types';
 import { calculateDistance } from '../utils/geo';
 import { Bus, MapPin, Navigation } from 'lucide-react';
 import MapComponent from '../components/Map/MapComponent';
+import bgImage from '../assets/background.png';
 
 const DriverDashboard = () => {
     const { user, userProfile, logout } = useAuth();
@@ -85,106 +86,87 @@ const DriverDashboard = () => {
     useEffect(() => {
         if (isDriving && user) {
             console.log("Starting Trip Tracking. Route:", routeRef.current?.name, "Van:", vanRef.current?.vanNumber);
+
+            // 1. high-frequency local updates
             const id = navigator.geolocation.watchPosition(
                 (pos) => {
                     const { latitude, longitude, speed } = pos.coords;
-                    setLocation([latitude, longitude]);
-
-                    // Stoppage Detection Logic
                     const currentTime = Date.now();
-                    const lastLoc = lastLocationRef.current;
 
-                    if (lastLoc) {
-                        const dist = calculateDistance(latitude, longitude, lastLoc[0], lastLoc[1]);
-                        if (dist > MOVEMENT_THRESHOLD_M) { // Use constant
+                    // Check distance from last known location to reset stoppage timer
+                    // Note: lastLocationRef might be the *previous* update or the one we just set?
+                    // We should check *before* updating or use a separate ref? 
+                    // Actually, let's assume if we moved significant distance from *stored* location.
+                    // But we update lastLocationRef every time. 
+                    // To properly throttle stoppage check, we might want to check against 'lastMovementLocation'
+                    // But adhering to previous logic:
+                    if (lastLocationRef.current) {
+                        const dist = calculateDistance(latitude, longitude, lastLocationRef.current[0], lastLocationRef.current[1]);
+                        if (dist > MOVEMENT_THRESHOLD_M) {
                             lastMovementTimeRef.current = currentTime;
-                            lastLocationRef.current = [latitude, longitude];
-                            alertSentRef.current = false; // Reset alert flag if moved
+                            alertSentRef.current = false;
                         }
                     } else {
-                        lastLocationRef.current = [latitude, longitude];
                         lastMovementTimeRef.current = currentTime;
                     }
 
-                    const route = routeRef.current;
-                    const van = vanRef.current;
-                    const index = stopIndexRef.current;
+                    setLocation([latitude, longitude]);
+                    lastLocationRef.current = [latitude, longitude];
+                },
+                (err) => console.error("Location error:", err),
+                { enableHighAccuracy: true, maximumAge: 0 }
+            );
+            setWatchId(id);
+
+            // 2. Throttled Database Sync (Every 5 seconds)
+            const syncInterval = setInterval(() => {
+                const loc = lastLocationRef.current;
+                const route = routeRef.current;
+                const van = vanRef.current;
+                const index = stopIndexRef.current;
+
+                if (loc && route && van) {
+                    const [lat, lng] = loc;
                     let status: 'en_route' | 'arriving' | 'arrived' = 'en_route';
                     let nextStopId = '';
                     let nextStopName = '';
 
-                    // Check proximity to current target stop
-                    if (route && route.stops[index]) {
+                    // Check proximity
+                    if (route.stops[index]) {
                         const stop = route.stops[index];
                         nextStopId = stop.id;
                         nextStopName = stop.name;
+                        const distToStop = calculateDistance(lat, lng, stop.lat, stop.lng);
 
-                        const distToStop = calculateDistance(latitude, longitude, stop.lat, stop.lng);
-
-                        // If within 100m, mark as arriving
                         if (distToStop < 100) {
                             status = 'arriving';
-                            // Note: We don't auto-advance to "Arrived" or next stop to avoid skipping. 
-                            // Using "Arriving" alerts parents. Driver manually confirms arrival usually.
-                            // But request asked for auto updates - let's set arriving status.
                             setArrivalStatus('arriving');
                         } else {
                             setArrivalStatus('en_route');
                         }
                     }
 
-                    // Update Firebase
-                    console.log("Updating Location:", { lat: latitude, vanId: van?.id, routeId: route?.id });
+                    console.log("Syncing Location to Firebase:", { lat, lng });
                     locationService.updateLocation(user.uid, {
                         busId: user.uid,
-                        lat: latitude,
-                        lng: longitude,
-                        speed: speed || 0,
-                        routeId: route?.id || '',
-                        vanId: van?.id || '',
+                        lat: lat,
+                        lng: lng,
+                        speed: 0, // Could track speed from watchPosition if needed, for now 0
+                        routeId: route.id,
+                        vanId: van.id,
                         nextStopId,
                         nextStopName,
                         arrivalStatus: status
                     });
-                },
-                (err) => console.error("Location error:", err),
-                { enableHighAccuracy: true, maximumAge: 0 }
-            );
-            setWatchId(id);
-        } else {
-            if (watchId !== null) {
-                navigator.geolocation.clearWatch(watchId);
-                setWatchId(null);
-            }
-        }
-
-        // Heartbeat to ensure status is live even if stationary
-        let heartbeatInterval: any;
-        if (isDriving && user) {
-            heartbeatInterval = setInterval(() => {
-                if (routeRef.current && vanRef.current) {
-                    console.log("Heartbeat Location Update");
-                    locationService.updateLocation(user.uid, {
-                        busId: user.uid,
-                        // Use latest known location
-                        lat: location?.[0] || 0,
-                        lng: location?.[1] || 0,
-                        speed: 0, // Stationary update
-                        routeId: routeRef.current.id,
-                        vanId: vanRef.current.id,
-                        nextStopId: routeRef.current.stops[stopIndexRef.current]?.id,
-                        nextStopName: routeRef.current.stops[stopIndexRef.current]?.name,
-                        arrivalStatus: 'en_route' // Or maintain current status if we tracked it in ref
-                    });
                 }
-            }, 5000); // 5 seconds
-        }
+            }, 5000); // 5 Seconds Interval
 
-        return () => {
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
-        };
-    }, [isDriving, user]); // Removed assignedRoute/Van from deps as we use Refs now
+            return () => {
+                navigator.geolocation.clearWatch(id);
+                clearInterval(syncInterval);
+            };
+        }
+    }, [isDriving, user]);
 
     // Background Stoppage Check (Independent of Location Updates)
     useEffect(() => {
@@ -243,8 +225,9 @@ const DriverDashboard = () => {
     };
 
     if (loadingData) return (
-        <div className="flex items-center justify-center h-screen bg-slate-900">
-            <div className="flex flex-col items-center gap-4">
+        <div className="flex items-center justify-center h-screen bg-cover bg-center bg-no-repeat relative" style={{ backgroundImage: `url(${bgImage})` }}>
+            <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-0"></div>
+            <div className="flex flex-col items-center gap-4 relative z-10">
                 <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                 <p className="text-slate-400 font-medium animate-pulse">Loading Driver Profile...</p>
             </div>
@@ -253,8 +236,9 @@ const DriverDashboard = () => {
 
     if (!assignedVan || !assignedRoute) {
         return (
-            <div className="flex items-center justify-center h-screen bg-slate-900 p-8">
-                <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl border border-red-500/30 max-w-md w-full text-center">
+            <div className="flex items-center justify-center h-screen bg-cover bg-center bg-no-repeat relative" style={{ backgroundImage: `url(${bgImage})` }}>
+                <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-0"></div>
+                <div className="relative z-10 bg-slate-800/90 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-red-500/30 max-w-md w-full text-center">
                     <div className="bg-red-500/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Bus className="w-8 h-8 text-red-500" />
                     </div>

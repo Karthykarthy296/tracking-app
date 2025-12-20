@@ -5,6 +5,7 @@ import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types';
 import { Bus, UserCheck } from 'lucide-react';
+import bgImage from '../assets/background.png';
 
 const RoleSelection = () => {
   const { user, userProfile } = useAuth();
@@ -15,7 +16,7 @@ const RoleSelection = () => {
 
   React.useEffect(() => {
     if (userProfile?.role) {
-        navigate('/', { replace: true });
+      navigate('/', { replace: true });
     }
   }, [userProfile, navigate]);
 
@@ -48,8 +49,9 @@ const RoleSelection = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat relative" style={{ backgroundImage: `url(${bgImage})` }}>
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-0"></div>
+      <div className="max-w-md w-full bg-white rounded-xl shadow-2xl p-8 relative z-10 animate-in fade-in zoom-in duration-300">
         <div className="flex justify-center mb-6">
           <div className="bg-blue-100 p-3 rounded-full">
             <UserCheck className="w-8 h-8 text-blue-600" />
@@ -71,49 +73,49 @@ const RoleSelection = () => {
 
         <form onSubmit={handleRoleSelection} className="space-y-6">
           <div className="space-y-4">
-            <div 
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${role === 'student' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
-                onClick={() => setRole('student')}
+            <div
+              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${role === 'student' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
+              onClick={() => setRole('student')}
             >
-                <div className="flex items-center gap-3">
-                    <div className="bg-white p-2 rounded-full shadow-sm">
-                        <UserCheck className="w-5 h-5 text-gray-700" />
-                    </div>
-                    <div>
-                        <h3 className="font-semibold text-gray-900">Student / Parent</h3>
-                        <p className="text-sm text-gray-500">I want to track school buses.</p>
-                    </div>
+              <div className="flex items-center gap-3">
+                <div className="bg-white p-2 rounded-full shadow-sm">
+                  <UserCheck className="w-5 h-5 text-gray-700" />
                 </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Student / Parent</h3>
+                  <p className="text-sm text-gray-500">I want to track school buses.</p>
+                </div>
+              </div>
             </div>
 
-            <div 
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${role === 'driver' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
-                onClick={() => setRole('driver')}
+            <div
+              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${role === 'driver' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
+              onClick={() => setRole('driver')}
             >
-                <div className="flex items-center gap-3">
-                    <div className="bg-white p-2 rounded-full shadow-sm">
-                        <Bus className="w-5 h-5 text-gray-700" />
-                    </div>
-                    <div>
-                        <h3 className="font-semibold text-gray-900">Bus Driver</h3>
-                        <p className="text-sm text-gray-500">I drive the school bus.</p>
-                    </div>
+              <div className="flex items-center gap-3">
+                <div className="bg-white p-2 rounded-full shadow-sm">
+                  <Bus className="w-5 h-5 text-gray-700" />
                 </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Bus Driver</h3>
+                  <p className="text-sm text-gray-500">I drive the school bus.</p>
+                </div>
+              </div>
             </div>
-            
-             <div 
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${role === 'admin' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
-                onClick={() => setRole('admin')}
+
+            <div
+              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${role === 'admin' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
+              onClick={() => setRole('admin')}
             >
-                <div className="flex items-center gap-3">
-                    <div className="bg-white p-2 rounded-full shadow-sm">
-                        <UserCheck className="w-5 h-5 text-gray-700" />
-                    </div>
-                    <div>
-                        <h3 className="font-semibold text-gray-900">Administrator</h3>
-                        <p className="text-sm text-gray-500">Manage routes and users.</p>
-                    </div>
+              <div className="flex items-center gap-3">
+                <div className="bg-white p-2 rounded-full shadow-sm">
+                  <UserCheck className="w-5 h-5 text-gray-700" />
                 </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Administrator</h3>
+                  <p className="text-sm text-gray-500">Manage routes and users.</p>
+                </div>
+              </div>
             </div>
           </div>
 
