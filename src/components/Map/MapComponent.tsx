@@ -8,10 +8,10 @@ import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
 let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
 });
 
 L.Marker.prototype.options.icon = DefaultIcon;
@@ -66,16 +66,16 @@ const RecenterMap = ({ center }: { center: [number, number] }) => {
 const MapClickHandler = ({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) => {
   useMapEvents({
     click: (e) => {
-        onMapClick(e.latlng.lat, e.latlng.lng);
+      onMapClick(e.latlng.lat, e.latlng.lng);
     },
   });
   return null;
 };
 
-const MapComponent: React.FC<MapComponentProps> = ({ 
-  center = [12.9716, 77.5946], 
-  zoom = 13, 
-  stops = [], 
+const MapComponent: React.FC<MapComponentProps> = ({
+  center = [12.9716, 77.5946],
+  zoom = 13,
+  stops = [],
   buses = [],
   onStopClick,
   onBusClick,
@@ -87,10 +87,10 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
   return (
     <div className="w-full h-full relative bg-[#0f172a] rounded-3xl overflow-hidden shadow-inner border border-white/5 group">
-      
-      <MapContainer 
-        center={center} 
-        zoom={zoom} 
+
+      <MapContainer
+        center={center}
+        zoom={zoom}
         style={{ height: '100%', width: '100%', background: '#0f172a' }}
         className="z-0"
       >
@@ -124,75 +124,75 @@ const MapComponent: React.FC<MapComponentProps> = ({
             }
             /* Smooth Marker Animation */
             .leaflet-marker-icon {
-                transition: all 1s linear;
+                transition: all 0.5s linear;
             }
         `}</style>
-        
+
         <RecenterMap center={center} />
-        
+
         {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
 
         {/* Route Line */}
         {routeCoordinates.length > 1 && (
-            <>
-                {/* Glow Effect */}
-                <Polyline 
-                    positions={routeCoordinates}
-                    pathOptions={{ color: '#ef4444', weight: 8, opacity: 0.4 }}
-                />
-                {/* Main Line */}
-                <Polyline 
-                    positions={routeCoordinates}
-                    pathOptions={{ color: '#ef4444', weight: 3, opacity: 1, dashArray: '10, 10' }} 
-                />
-            </>
+          <>
+            {/* Glow Effect */}
+            <Polyline
+              positions={routeCoordinates}
+              pathOptions={{ color: '#ef4444', weight: 8, opacity: 0.4 }}
+            />
+            {/* Main Line */}
+            <Polyline
+              positions={routeCoordinates}
+              pathOptions={{ color: '#ef4444', weight: 3, opacity: 1, dashArray: '10, 10' }}
+            />
+          </>
         )}
 
         {/* Bus Stops */}
         {stops.map((stop) => (
-          <Marker 
-              key={stop.id} 
-              position={[stop.lat, stop.lng]} 
-              icon={stopIcon}
-              eventHandlers={{ click: () => onStopClick && onStopClick(stop) }}
+          <Marker
+            key={stop.id}
+            position={[stop.lat, stop.lng]}
+            icon={stopIcon}
+            eventHandlers={{ click: () => onStopClick && onStopClick(stop) }}
           >
             <Popup className="custom-popup">
-                <div className="font-bold text-slate-800">{stop.name}</div>
+              <div className="font-bold text-slate-800">{stop.name}</div>
             </Popup>
           </Marker>
         ))}
 
         {/* Temp Marker */}
         {tempMarker && (
-            <Marker 
-              position={tempMarker} 
-              icon={stopIcon} 
-              opacity={0.7}
-            >
-                <Popup>New Stop Location</Popup>
-            </Marker>
+          <Marker
+            position={tempMarker}
+            icon={stopIcon}
+            opacity={0.7}
+          >
+            <Popup>New Stop Location</Popup>
+          </Marker>
         )}
 
         {/* Buses */}
         {buses.map((bus) => (
-          <Marker 
-              key={bus.busId} 
-              position={[bus.lat, bus.lng]} 
-              icon={busIcon}
-              eventHandlers={{ click: () => onBusClick && onBusClick(bus) }}
+          <Marker
+            key={bus.busId}
+            position={[bus.lat, bus.lng]}
+            icon={busIcon}
+            eventHandlers={{ click: () => onBusClick && onBusClick(bus) }}
           >
             <Popup className="custom-popup">
-                <div className="font-bold text-blue-600">Bus ID: {bus.busId}</div>
-                <div className="text-xs text-slate-500">Speed: {Math.round(bus.speed || 0)} km/h</div>
+              <div className="font-bold text-blue-600">Bus ID: {bus.busId}</div>
+              <div className="text-xs text-slate-500">Speed: {Math.round(bus.speed || 0)} km/h</div>
             </Popup>
           </Marker>
         ))}
-        
+
         {/* User Location */}
         {userLocation && (
-            <Marker position={userLocation}>
-                <Popup>You are here</Popup>
-            </Marker>
+          <Marker position={userLocation}>
+            <Popup>You are here</Popup>
+          </Marker>
         )}
 
       </MapContainer>

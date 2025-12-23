@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { routeService, locationService, vanService, userService, alertService } from '../services/db';
 import type { Route, BusLocation, Van, StoppageAlert } from '../types';
-import { MapPin, Bus, AlertTriangle } from 'lucide-react';
+import { MapPin, Bus, AlertTriangle, X } from 'lucide-react';
 import MapComponent from '../components/Map/MapComponent';
 
 const StudentDashboard = () => {
@@ -20,6 +20,7 @@ const StudentDashboard = () => {
 
     // Alert State
     const [activeAlert, setActiveAlert] = useState<StoppageAlert | null>(null);
+    const [dismissedAlertId, setDismissedAlertId] = useState<string | null>(null);
 
     // Initial Data Load
     useEffect(() => {
@@ -197,19 +198,25 @@ const StudentDashboard = () => {
 
             {/* Alert Banner */}
             {
-                activeAlert && (
+                activeAlert && activeAlert.id !== dismissedAlertId && (
                     <div className="absolute top-20 left-4 right-4 z-[600] pointer-events-none animate-in slide-in-from-top duration-500">
-                        <div className="bg-red-500/90 backdrop-blur-md text-white p-4 rounded-2xl shadow-2xl border border-red-400 flex items-start gap-4">
-                            <div className="bg-white/20 p-2 rounded-lg animate-pulse">
+                        <div className="bg-red-500/90 backdrop-blur-md text-white p-4 rounded-2xl shadow-2xl border border-red-400 flex items-start gap-4 pointer-events-auto">
+                            <div className="bg-white/20 p-2 rounded-lg animate-pulse shrink-0">
                                 <AlertTriangle className="w-6 h-6 text-white" />
                             </div>
-                            <div>
+                            <div className="flex-1">
                                 <h3 className="font-bold text-lg">Bus Stoppage Detected</h3>
                                 <p className="text-sm opacity-90">{activeAlert.message}</p>
                                 <p className="text-xs mt-1 opacity-75">
                                     {new Date(activeAlert.detectedAt).toLocaleTimeString()}
                                 </p>
                             </div>
+                            <button
+                                onClick={() => setDismissedAlertId(activeAlert.id)}
+                                className="bg-white/10 hover:bg-white/20 p-1.5 rounded-full transition-colors"
+                            >
+                                <X size={20} className="text-white" />
+                            </button>
                         </div>
                     </div>
                 )

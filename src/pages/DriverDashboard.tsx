@@ -36,6 +36,7 @@ const DriverDashboard = () => {
     const alertSentRef = useRef(false);
     const STOPPAGE_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
     const MOVEMENT_THRESHOLD_M = 30; // 30 meters
+    const lastUpdateRef = useRef(0);
 
     useEffect(() => {
         const loadAssignment = async () => {
@@ -93,13 +94,10 @@ const DriverDashboard = () => {
                     const { latitude, longitude, speed } = pos.coords;
                     const currentTime = Date.now();
 
-                    // Check distance from last known location to reset stoppage timer
-                    // Note: lastLocationRef might be the *previous* update or the one we just set?
-                    // We should check *before* updating or use a separate ref? 
-                    // Actually, let's assume if we moved significant distance from *stored* location.
-                    // But we update lastLocationRef every time. 
-                    // To properly throttle stoppage check, we might want to check against 'lastMovementLocation'
-                    // But adhering to previous logic:
+                    // Update Local State
+                    setLocation([latitude, longitude]);
+
+                    // Stoppage Logic
                     if (lastLocationRef.current) {
                         const dist = calculateDistance(latitude, longitude, lastLocationRef.current[0], lastLocationRef.current[1]);
                         if (dist > MOVEMENT_THRESHOLD_M) {
@@ -109,61 +107,58 @@ const DriverDashboard = () => {
                     } else {
                         lastMovementTimeRef.current = currentTime;
                     }
-
-                    setLocation([latitude, longitude]);
                     lastLocationRef.current = [latitude, longitude];
+
+                    // Sync to Firebase (Throttled 500ms) - IMMEDIATE REFLECTION
+                    if (currentTime - lastUpdateRef.current > 500) {
+                        lastUpdateRef.current = currentTime;
+
+                        const route = routeRef.current;
+                        const van = vanRef.current;
+                        const index = stopIndexRef.current;
+
+                        if (route && van) {
+                            let status: 'en_route' | 'arriving' | 'arrived' = 'en_route';
+                            let nextStopId = '';
+                            let nextStopName = '';
+
+                            // Check proximity
+                            if (route.stops[index]) {
+                                const stop = route.stops[index];
+                                nextStopId = stop.id;
+                                nextStopName = stop.name;
+                                const distToStop = calculateDistance(latitude, longitude, stop.lat, stop.lng);
+
+                                if (distToStop < 100) {
+                                    status = 'arriving';
+                                    setArrivalStatus('arriving');
+                                } else {
+                                    setArrivalStatus('en_route');
+                                }
+                            }
+
+                            // Update Location Immediately
+                            locationService.updateLocation(user.uid, {
+                                busId: user.uid,
+                                lat: latitude,
+                                lng: longitude,
+                                speed: speed || 0,
+                                routeId: route.id,
+                                vanId: van.id,
+                                nextStopId,
+                                nextStopName,
+                                arrivalStatus: status
+                            });
+                        }
+                    }
                 },
                 (err) => console.error("Location error:", err),
                 { enableHighAccuracy: true, maximumAge: 0 }
             );
             setWatchId(id);
 
-            // 2. Throttled Database Sync (Every 1 second for live tracking)
-            const syncInterval = setInterval(() => {
-                const loc = lastLocationRef.current;
-                const route = routeRef.current;
-                const van = vanRef.current;
-                const index = stopIndexRef.current;
-
-                if (loc && route && van) {
-                    const [lat, lng] = loc;
-                    let status: 'en_route' | 'arriving' | 'arrived' = 'en_route';
-                    let nextStopId = '';
-                    let nextStopName = '';
-
-                    // Check proximity
-                    if (route.stops[index]) {
-                        const stop = route.stops[index];
-                        nextStopId = stop.id;
-                        nextStopName = stop.name;
-                        const distToStop = calculateDistance(lat, lng, stop.lat, stop.lng);
-
-                        if (distToStop < 100) {
-                            status = 'arriving';
-                            setArrivalStatus('arriving');
-                        } else {
-                            setArrivalStatus('en_route');
-                        }
-                    }
-
-                    console.log("Syncing Location to Firebase:", { lat, lng });
-                    locationService.updateLocation(user.uid, {
-                        busId: user.uid,
-                        lat: lat,
-                        lng: lng,
-                        speed: 0, // Could track speed from watchPosition if needed, for now 0
-                        routeId: route.id,
-                        vanId: van.id,
-                        nextStopId,
-                        nextStopName,
-                        arrivalStatus: status
-                    });
-                }
-            }, 1000); // 1 Second Interval for Real-time Tracking
-
             return () => {
                 navigator.geolocation.clearWatch(id);
-                clearInterval(syncInterval);
             };
         }
     }, [isDriving, user]);
@@ -203,6 +198,39 @@ const DriverDashboard = () => {
 
         return () => clearInterval(intervalId);
     }, [isDriving, location]); // Dependencies
+
+    // Wake Lock to prevent screen sleep while driving
+    useEffect(() => {
+        let wakeLock: any = null;
+
+        const requestWakeLock = async () => {
+            if (isDriving && 'wakeLock' in navigator) {
+                try {
+                    // @ts-ignore - Navigator types might not include wakeLock yet
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock is active!');
+                } catch (err) {
+                    console.error('Wake Lock error:', err);
+                }
+            }
+        };
+
+        requestWakeLock();
+
+        // Re-request wake lock if visibility changes (e.g. user switches tabs and comes back)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && isDriving) {
+                requestWakeLock();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            if (wakeLock) wakeLock.release();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [isDriving]);
 
 
 
