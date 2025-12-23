@@ -118,7 +118,7 @@ const DriverDashboard = () => {
             );
             setWatchId(id);
 
-            // 2. Throttled Database Sync (Every 5 seconds)
+            // 2. Throttled Database Sync (Every 1 second for live tracking)
             const syncInterval = setInterval(() => {
                 const loc = lastLocationRef.current;
                 const route = routeRef.current;
@@ -159,7 +159,7 @@ const DriverDashboard = () => {
                         arrivalStatus: status
                     });
                 }
-            }, 5000); // 5 Seconds Interval
+            }, 1000); // 1 Second Interval for Real-time Tracking
 
             return () => {
                 navigator.geolocation.clearWatch(id);
@@ -426,12 +426,8 @@ const DriverDashboard = () => {
                                             // Update Local State for smooth UI (Runs at 30fps)
                                             setLocation([lat, lng]);
 
-                                            // Update Firebase Throttled (every ~1s or 30 frames)
-                                            // We use a counter ref or just check progress steps to avoid state dependency if possible, 
-                                            // but inside interval we need to be careful. 
-                                            // Simplest: Check if we just crossed a 5% threshold or use a counter.
-                                            // Let's use a simpler heuristic: Only update DB every 30 ticks (approx 1 sec)
-                                            if ((progress * steps) % 30 < 1 && user && vanRef.current) {
+                                            // Update Firebase Throttled (every ~330ms or 10 frames)
+                                            if ((progress * steps) % 10 < 1 && user && vanRef.current) {
                                                 locationService.updateLocation(user.uid, {
                                                     busId: user.uid,
                                                     lat,
