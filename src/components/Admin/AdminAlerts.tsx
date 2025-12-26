@@ -1,25 +1,32 @@
 import { useEffect, useState } from 'react';
 import { alertService } from '../../services/db';
 import type { StoppageAlert } from '../../types';
-import { AlertTriangle, MapPin, Clock } from 'lucide-react';
+import { AlertTriangle, MapPin, Clock, CheckCircle } from 'lucide-react';
 
 const AdminAlerts = () => {
     const [alerts, setAlerts] = useState<StoppageAlert[]>([]);
-    const [dismissedIds, setDismissedIds] = useState<string[]>([]);
 
     useEffect(() => {
         const unsubscribe = alertService.subscribeToAlerts((data) => {
-            setAlerts(data);
+            // Only show unresolved alerts
+            setAlerts(data.filter(a => !a.isResolved));
         });
         return () => unsubscribe();
     }, []);
+
+    const handleAcknowledge = async (id: string) => {
+        try {
+            await alertService.resolveAlert(id);
+        } catch (error) {
+            console.error("Error acknowledging alert:", error);
+        }
+    };
 
     if (alerts.length === 0) return null;
 
     return (
         <div className="fixed bottom-6 right-6 w-96 max-h-[60vh] overflow-y-auto space-y-3 z-[1000] pointer-events-none">
             {alerts
-                .filter(a => !dismissedIds.includes(a.id))
                 .slice(0, 3)
                 .map(alert => (
                     <div key={alert.id} className="bg-red-900/90 backdrop-blur-md border border-red-500/50 p-4 rounded-xl shadow-2xl pointer-events-auto animate-in slide-in-from-right duration-300">
@@ -28,7 +35,17 @@ const AdminAlerts = () => {
                                 <AlertTriangle className="text-red-400 w-6 h-6" />
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-bold text-white text-sm mb-1">Stoppage Detected!</h3>
+                                <div className="flex justify-between items-start mb-1">
+                                    <h3 className="font-bold text-white text-sm">Stoppage Detected!</h3>
+                                    <button
+                                        onClick={() => handleAcknowledge(alert.id)}
+                                        className="bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 p-1.5 rounded-lg transition-all group/btn flex items-center gap-1.5"
+                                        title="Acknowledge Alert"
+                                    >
+                                        <CheckCircle size={14} />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Acknowledge</span>
+                                    </button>
+                                </div>
                                 <p className="text-red-200 text-xs mb-2 leading-relaxed">{alert.message}</p>
 
                                 <div className="flex items-center gap-3 text-[10px] text-red-300/70">
@@ -49,14 +66,6 @@ const AdminAlerts = () => {
                                     </span>
                                 </div>
                             </div>
-                            <button
-                                className="text-red-400 hover:text-white transition-colors"
-                                onClick={() => {
-                                    setDismissedIds(prev => [...prev, alert.id]);
-                                }}
-                            >
-                                &times;
-                            </button>
                         </div>
                     </div>
                 ))}

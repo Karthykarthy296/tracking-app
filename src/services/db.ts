@@ -1,5 +1,5 @@
 import { collection, addDoc, getDocs, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { ref, set, onValue, off, push } from 'firebase/database';
+import { ref, set, onValue, off, push, update } from 'firebase/database';
 import { db, rtdb } from '../lib/firebase';
 import type { Route, Stop, BusLocation, UserProfile, Van, StoppageAlert } from '../types';
 
@@ -161,5 +161,10 @@ export const alertService = {
       callback(alerts as StoppageAlert[]);
     });
     return () => off(alertsRef, 'value', unsubscribe);
+  },
+
+  resolveAlert: async (id: string) => {
+    const alertRef = ref(rtdb, `alerts/${id}`);
+    await update(alertRef, { isResolved: true });
   }
 };
