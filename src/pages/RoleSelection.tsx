@@ -102,21 +102,6 @@ const RoleSelection = () => {
                 </div>
               </div>
             </div>
-
-            <div
-              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${role === 'admin' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
-              onClick={() => setRole('admin')}
-            >
-              <div className="flex items-center gap-3">
-                <div className="bg-white p-2 rounded-full shadow-sm">
-                  <UserCheck className="w-5 h-5 text-gray-700" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Administrator</h3>
-                  <p className="text-sm text-gray-500">Manage routes and users.</p>
-                </div>
-              </div>
-            </div>
           </div>
 
           <button

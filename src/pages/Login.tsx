@@ -155,13 +155,14 @@ const Login = () => {
           {/* Role Selection - Now always visible */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-300 ml-1 uppercase tracking-wide">I am a...</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['student', 'driver', 'admin'] as UserRole[]).map((r) => (
+            <div className="grid grid-cols-2 gap-2">
+              {/* Only show Student and Driver during registration; show all 3 during login */}
+              {(isLogin ? ['student', 'driver', 'admin'] : ['student', 'driver']).map((r) => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => {
-                    setRole(r);
+                    setRole(r as UserRole);
                     setError('');
                   }}
                   className={`py-2 text-xs font-bold rounded-lg transition-all border ${role === r
@@ -169,7 +170,7 @@ const Login = () => {
                     : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700/50'
                     }`}
                 >
-                  {r.charAt(0).toUpperCase() + r.slice(1)}
+                  {r === 'student' ? 'Student' : r.charAt(0).toUpperCase() + r.slice(1)}
                 </button>
               ))}
             </div>
@@ -287,6 +288,7 @@ const Login = () => {
           <button
             onClick={() => {
               setIsLogin(!isLogin);
+              if (role === 'admin') setRole('student');
               setError('');
             }}
             className="text-white hover:text-blue-400 font-bold transition-colors ml-1"
