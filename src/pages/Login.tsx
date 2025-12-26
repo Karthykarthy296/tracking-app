@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
-import type { UserRole } from '../types';
+import type { UserRole, UserProfile } from '../types';
 import { Bus, User, Lock, Mail, ArrowRight } from 'lucide-react';
 import bgImage from '../assets/background.png';
 
@@ -12,12 +12,19 @@ const Login = () => {
   useAuth();
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(''); // This will hold either Email or ID
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('student');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Map ID to internal email format
+  const getInternalEmail = (input: string, targetRole: UserRole) => {
+    if (targetRole === 'admin') return input;
+    // Map IDs to specific domains to prevent collisions and satisfy Firebase email requirement
+    return `${input.trim().toLowerCase()}@${targetRole}.system`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,18 +32,43 @@ const Login = () => {
     setLoading(true);
 
     try {
+      const internalEmail = getInternalEmail(email, role);
+
+      // Validation
+      if (role === 'admin') {
+        if (!email.includes('@')) {
+          throw new Error("Administrators must log in with their email address.");
+        }
+      } else {
+        if (email.includes('@')) {
+          throw new Error(`Please use your ${role === 'driver' ? 'Driver ID' : 'User ID'} instead of an email.`);
+        }
+      }
+
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
+        const user = userCredential.user;
+
+        // Prevent cross-role access: Check actual role in Firestore
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const profile = userDoc.data() as UserProfile;
+          if (profile.role !== role) {
+            await auth.signOut();
+            throw new Error(`This account is registered as a ${profile.role}, not a ${role}. Access denied.`);
+          }
+        }
         navigate('/');
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         const user = userCredential.user;
 
         await setDoc(doc(db, 'users', user.uid), {
           uid: user.uid,
-          email: user.email,
+          email: internalEmail,
           role: role,
-          name: name
+          name: name,
+          createdAt: new Date().toISOString()
         });
 
         navigate('/');
@@ -44,11 +76,10 @@ const Login = () => {
     } catch (err: any) {
       console.error("Login/Signup error:", err);
       let msg = err.message;
-      if (err.code === 'auth/network-request-failed') {
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        msg = "Invalid credentials for the selected role.";
+      } else if (err.code === 'auth/network-request-failed') {
         msg = "Network error. Please check your connection.";
-      } else if (err.code === 'permission-denied' || err.message.includes("permissions")) {
-        msg = "FIREBASE PERMISSION ERROR: Update Firestore Rules.";
-        alert(`ACTION REQUIRED:\n\n1. Go to Firebase Console -> Firestore -> Rules\n2. Change 'allow read, write: if false;' to 'allow read, write: if request.auth != null;'\n3. Publish`);
       }
       setError(msg);
     } finally {
@@ -85,6 +116,29 @@ const Login = () => {
 
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Role Selection - Now always visible */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-300 ml-1 uppercase tracking-wide">I am a...</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['student', 'driver', 'admin'] as UserRole[]).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => {
+                    setRole(r);
+                    setError('');
+                  }}
+                  className={`py-2 text-xs font-bold rounded-lg transition-all border ${role === r
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/40'
+                    : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700/50'
+                    }`}
+                >
+                  {r.charAt(0).toUpperCase() + r.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {!isLogin && (
             <div className="space-y-1">
               <label className="text-xs font-semibold text-slate-300 ml-1 uppercase tracking-wide">Full Name</label>
@@ -103,14 +157,20 @@ const Login = () => {
           )}
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-300 ml-1 uppercase tracking-wide">ID</label>
+            <label className="text-xs font-semibold text-slate-300 ml-1 uppercase tracking-wide">
+              {role === 'admin' ? 'Email Address' : role === 'driver' ? 'Driver ID' : 'Student/Parent ID'}
+            </label>
             <div className="relative group">
-              <Mail className="w-5 h-5 text-slate-400 absolute left-3 top-3.5 transition-colors group-focus-within:text-blue-400" />
+              {role === 'admin' ? (
+                <Mail className="w-5 h-5 text-slate-400 absolute left-3 top-3.5 transition-colors group-focus-within:text-blue-400" />
+              ) : (
+                <User className="w-5 h-5 text-slate-400 absolute left-3 top-3.5 transition-colors group-focus-within:text-blue-400" />
+              )}
               <input
-                type="email"
+                type="text"
                 required
                 className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all placeholder:text-slate-500"
-                placeholder="Enter your ID"
+                placeholder={role === 'admin' ? "admin@email.com" : "Enter your ID"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -131,21 +191,6 @@ const Login = () => {
               />
             </div>
           </div>
-
-          {!isLogin && (
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-300 ml-1 uppercase tracking-wide">Role</label>
-              <select
-                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
-                value={role}
-                onChange={(e) => setRole(e.target.value as UserRole)}
-              >
-                <option value="student" className="bg-slate-800 text-white">Student/Parent</option>
-                <option value="driver" className="bg-slate-800 text-white">Bus Driver</option>
-
-              </select>
-            </div>
-          )}
 
           <button
             type="submit"
@@ -176,7 +221,7 @@ const Login = () => {
 
         {error && error.includes("already-in-use") && !isLogin && (
           <div className="mt-6 p-4 bg-blue-500/20 border border-blue-500/30 rounded-xl text-center backdrop-blur-sm animate-pulse">
-            <p className="text-sm text-blue-200 mb-3 font-medium">This email is already registered!</p>
+            <p className="text-sm text-blue-200 mb-3 font-medium">This ID is already registered!</p>
             <button
               onClick={() => {
                 setIsLogin(true);

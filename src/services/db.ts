@@ -1,5 +1,5 @@
 import { collection, addDoc, getDocs, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { ref, set, onValue, off, push, update } from 'firebase/database';
+import { ref, set, onValue, off, push } from 'firebase/database';
 import { db, rtdb } from '../lib/firebase';
 import type { Route, Stop, BusLocation, UserProfile, Van, StoppageAlert } from '../types';
 
@@ -27,6 +27,10 @@ export const routeService = {
       id: doc.id,
       ...doc.data()
     } as Route));
+  },
+
+  deleteRoute: async (id: string) => {
+    await deleteDoc(doc(db, 'routes', id));
   },
 
   // Create a stop (if stops are managed independently)
