@@ -151,7 +151,7 @@ const Login = () => {
         )}
 
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
           {/* Role Selection - Now always visible */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-300 ml-1 uppercase tracking-wide">I am a...</label>
@@ -207,9 +207,10 @@ const Login = () => {
                 type="text"
                 required
                 className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all placeholder:text-slate-500"
-                placeholder={role === 'admin' ? "admin@email.com" : "Enter your ID"}
+                placeholder={role === 'admin' ? "Enter your email" : "Enter your ID"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="off"
               />
             </div>
           </div>
@@ -222,9 +223,10 @@ const Login = () => {
                 type="password"
                 required
                 className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all placeholder:text-slate-500"
-                placeholder="••••••••"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
               />
             </div>
           </div>
