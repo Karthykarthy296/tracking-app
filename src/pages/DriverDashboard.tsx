@@ -330,113 +330,140 @@ const DriverDashboard = () => {
 
             {/* Controls Panel */}
             <div className="absolute bottom-6 left-6 right-6 z-20 flex justify-center pointer-events-none">
-                <div className="w-full max-w-2xl bg-slate-900/95 backdrop-blur-xl p-6 rounded-3xl border border-slate-700 shadow-2xl pointer-events-auto transition-all">
+                <div className={`w-full max-w-2xl bg-slate-900/95 backdrop-blur-xl p-6 rounded-3xl border border-slate-700 shadow-2xl pointer-events-auto transition-all ${isDriving ? 'flex gap-4 items-center' : ''}`}>
 
-                    {/* Status Bar */}
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                        <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
-                            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Current Status</p>
-                            <div className="flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${isDriving ? (arrivalStatus === 'en_route' ? 'bg-green-500' : 'bg-orange-500') : 'bg-slate-600'}`}></span>
-                                <p className={`font-bold text-lg ${isDriving ? (arrivalStatus === 'en_route' ? 'text-green-400' : 'text-orange-400') : 'text-slate-400'}`}>
-                                    {isDriving ? (arrivalStatus === 'arriving' || arrivalStatus === 'arrived' ? 'ARRIVING' : 'EN ROUTE') : 'OFF DUTY'}
+                    {/* Left Section: Status & Progress */}
+                    <div className={isDriving ? "flex-1 min-w-0" : "w-full"}>
+                        {/* Status Bar */}
+                        <div className={`grid grid-cols-2 gap-4 ${isDriving ? 'mb-4' : 'mb-6'}`}>
+                            <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
+                                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Current Status</p>
+                                <div className="flex items-center gap-2">
+                                    <span className={`w-2 h-2 rounded-full ${isDriving ? (arrivalStatus === 'en_route' ? 'bg-green-500' : 'bg-orange-500') : 'bg-slate-600'}`}></span>
+                                    <p className={`font-bold text-lg ${isDriving ? (arrivalStatus === 'en_route' ? 'text-green-400' : 'text-orange-400') : 'text-slate-400'}`}>
+                                        {isDriving ? (arrivalStatus === 'arriving' || arrivalStatus === 'arrived' ? 'ARRIVING' : 'EN ROUTE') : 'OFF DUTY'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 text-right">
+                                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Next Stop</p>
+                                <p className="font-bold text-lg text-blue-400 truncate">
+                                    {currentStop?.name || 'End of Route'}
                                 </p>
                             </div>
                         </div>
-                        <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 text-right">
-                            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Next Stop</p>
-                            <p className="font-bold text-lg text-blue-400 truncate">
-                                {currentStop?.name || 'End of Route'}
-                            </p>
-                        </div>
-                    </div>
 
-                    {/* Progress Bar */}
-                    {isDriving && assignedRoute && (
-                        <div className="mb-6">
-                            <div className="flex justify-between text-xs text-slate-400 mb-2 font-medium">
-                                <span>Start</span>
-                                <span>{Math.round(((currentStopIndex) / (assignedRoute.stops?.length || 1)) * 100)}% Complete</span>
-                                <span>End</span>
-                            </div>
-                            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700/50">
-                                <div
-                                    className="bg-gradient-to-r from-blue-600 to-violet-500 h-full rounded-full transition-all duration-700 ease-out relative"
-                                    style={{ width: `${Math.max(5, ((currentStopIndex) / (assignedRoute.stops?.length || 1)) * 100)}%` }}
-                                >
-                                    <div className="absolute top-0 right-0 bottom-0 w-1 bg-white/50 blur-[2px]"></div>
+                        {/* Progress Bar */}
+                        {isDriving && assignedRoute && (
+                            <div className={isDriving ? "mb-0" : "mb-6"}>
+                                <div className="flex justify-between text-xs text-slate-400 mb-2 font-medium">
+                                    <span>Start</span>
+                                    <span>{Math.round(((currentStopIndex) / (assignedRoute.stops?.length || 1)) * 100)}% Complete</span>
+                                    <span>End</span>
+                                </div>
+                                <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700/50">
+                                    <div
+                                        className="bg-gradient-to-r from-blue-600 to-violet-500 h-full rounded-full transition-all duration-700 ease-out relative"
+                                        style={{ width: `${Math.max(5, ((currentStopIndex) / (assignedRoute.stops?.length || 1)) * 100)}%` }}
+                                    >
+                                        <div className="absolute top-0 right-0 bottom-0 w-1 bg-white/50 blur-[2px]"></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
 
-                    {/* Action Buttons */}
-                    {/* Action Buttons */}
-                    {!isDriving ? (
-                        <button
-                            onClick={() => {
-                                setIsDriving(true);
-                                if (user && routeRef.current && vanRef.current) {
-                                    // Start at first stop 
-                                    const firstStop = routeRef.current.stops[0];
-                                    setLocation([firstStop.lat, firstStop.lng]);
-
-                                    locationService.updateLocation(user.uid, {
-                                        busId: user.uid,
-                                        lat: firstStop.lat,
-                                        lng: firstStop.lng,
-                                        speed: 0,
-                                        routeId: routeRef.current.id,
-                                        vanId: vanRef.current.id,
-                                        nextStopId: routeRef.current.stops[0]?.id || '',
-                                        nextStopName: routeRef.current.stops[0]?.name || '',
-                                        arrivalStatus: 'en_route'
-                                    });
-                                }
-                            }}
-                            className="w-full py-5 rounded-2xl font-bold text-white text-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-lg shadow-green-900/40 transition-all transform active:scale-[0.98]"
-                        >
-                            START TRIP
-                        </button>
-                    ) : (
-                        <div className="grid grid-cols-2 gap-4">
-                            <button
-                                onClick={handleManualArrived}
-                                className="bg-orange-600 hover:bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-orange-900/20 flex flex-col items-center justify-center gap-1 transition-all active:scale-95"
-                            >
-                                <MapPin size={24} />
-                                <span className="text-sm">MARK ARRIVED</span>
-                            </button>
-
+                    {/* Right Section: Action Buttons */}
+                    <div className={isDriving ? "w-48 flex-shrink-0" : "w-full"}>
+                        {!isDriving ? (
                             <button
                                 onClick={() => {
-                                    if (!assignedRoute) return;
-                                    const stops = assignedRoute.stops || [];
-                                    if (currentStopIndex < stops.length - 1) {
-                                        const nextIndex = currentStopIndex + 1;
+                                    setIsDriving(true);
+                                    if (user && routeRef.current && vanRef.current) {
+                                        // Start at first stop 
+                                        const firstStop = routeRef.current.stops[0];
+                                        setLocation([firstStop.lat, firstStop.lng]);
 
-                                        // Animate Movement to Next Stop
-                                        const startStop = stops[currentStopIndex];
-                                        const endStop = stops[nextIndex];
-                                        let progress = 0;
-                                        const animationDuration = 2000; // 2 seconds
-                                        const fps = 30;
-                                        const steps = (animationDuration / 1000) * fps;
-                                        const increment = 1 / steps;
+                                        locationService.updateLocation(user.uid, {
+                                            busId: user.uid,
+                                            lat: firstStop.lat,
+                                            lng: firstStop.lng,
+                                            speed: 0,
+                                            routeId: routeRef.current.id,
+                                            vanId: vanRef.current.id,
+                                            nextStopId: routeRef.current.stops[0]?.id || '',
+                                            nextStopName: routeRef.current.stops[0]?.name || '',
+                                            arrivalStatus: 'en_route'
+                                        });
+                                    }
+                                }}
+                                className="w-full py-5 rounded-2xl font-bold text-white text-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-lg shadow-green-900/40 transition-all transform active:scale-[0.98]"
+                            >
+                                START TRIP
+                            </button>
+                        ) : (
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={handleManualArrived}
+                                    className="bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-orange-900/20 flex items-center justify-between transition-all active:scale-95 w-full"
+                                >
+                                    <span className="text-xs">MARK ARRIVED</span>
+                                    <MapPin size={18} />
+                                </button>
 
-                                        const interval = setInterval(() => {
-                                            progress += increment;
-                                            if (progress >= 1) {
-                                                clearInterval(interval);
-                                                // Finalize
-                                                setCurrentStopIndex(nextIndex);
-                                                setArrivalStatus('en_route');
-                                                if (user && vanRef.current) {
+                                <button
+                                    onClick={() => {
+                                        if (!assignedRoute) return;
+                                        const stops = assignedRoute.stops || [];
+                                        if (currentStopIndex < stops.length - 1) {
+                                            const nextIndex = currentStopIndex + 1;
+
+                                            // Animate Movement to Next Stop
+                                            const startStop = stops[currentStopIndex];
+                                            const endStop = stops[nextIndex];
+                                            let progress = 0;
+                                            const animationDuration = 2000; // 2 seconds
+                                            const fps = 30;
+                                            const steps = (animationDuration / 1000) * fps;
+                                            const increment = 1 / steps;
+
+                                            const interval = setInterval(() => {
+                                                progress += increment;
+                                                if (progress >= 1) {
+                                                    clearInterval(interval);
+                                                    // Finalize
+                                                    setCurrentStopIndex(nextIndex);
+                                                    setArrivalStatus('en_route');
+                                                    if (user && vanRef.current) {
+                                                        locationService.updateLocation(user.uid, {
+                                                            busId: user.uid,
+                                                            lat: endStop.lat,
+                                                            lng: endStop.lng,
+                                                            speed: 0,
+                                                            routeId: assignedRoute.id,
+                                                            vanId: vanRef.current?.id || '',
+                                                            nextStopId: endStop.id,
+                                                            nextStopName: endStop.name,
+                                                            arrivalStatus: 'en_route'
+                                                        });
+                                                    }
+                                                    return;
+                                                }
+
+                                                // Interpolate
+                                                const lat = startStop.lat + (endStop.lat - startStop.lat) * progress;
+                                                const lng = startStop.lng + (endStop.lng - startStop.lng) * progress;
+
+                                                // Update Local State for smooth UI (Runs at 30fps)
+                                                setLocation([lat, lng]);
+
+                                                // Update Firebase Throttled (every ~330ms or 10 frames)
+                                                if ((progress * steps) % 10 < 1 && user && vanRef.current) {
                                                     locationService.updateLocation(user.uid, {
                                                         busId: user.uid,
-                                                        lat: endStop.lat,
-                                                        lng: endStop.lng,
-                                                        speed: 0,
+                                                        lat,
+                                                        lng,
+                                                        speed: 40,
                                                         routeId: assignedRoute.id,
                                                         vanId: vanRef.current?.id || '',
                                                         nextStopId: endStop.id,
@@ -444,72 +471,49 @@ const DriverDashboard = () => {
                                                         arrivalStatus: 'en_route'
                                                     });
                                                 }
-                                                return;
-                                            }
+                                            }, 1000 / fps);
+                                        } else {
+                                            alert("End of Route Reached");
+                                            setIsDriving(false);
+                                            setCurrentStopIndex(0);
+                                            locationService.updateLocation(user?.uid || '', {
+                                                busId: user?.uid || '',
+                                                lat: 0,
+                                                lng: 0,
+                                                routeId: '',
+                                                updatedAt: Date.now(),
+                                                isOnline: false
+                                            } as any);
+                                        }
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-900/20 flex items-center justify-between transition-all active:scale-95 w-full"
+                                >
+                                    <span className="text-xs">{currentStopIndex < (assignedRoute.stops?.length || 0) - 1 ? 'NEXT STOP' : 'FINISH TRIP'}</span>
+                                    <Navigation size={18} />
+                                </button>
 
-                                            // Interpolate
-                                            const lat = startStop.lat + (endStop.lat - startStop.lat) * progress;
-                                            const lng = startStop.lng + (endStop.lng - startStop.lng) * progress;
-
-                                            // Update Local State for smooth UI (Runs at 30fps)
-                                            setLocation([lat, lng]);
-
-                                            // Update Firebase Throttled (every ~330ms or 10 frames)
-                                            if ((progress * steps) % 10 < 1 && user && vanRef.current) {
-                                                locationService.updateLocation(user.uid, {
-                                                    busId: user.uid,
-                                                    lat,
-                                                    lng,
-                                                    speed: 40,
-                                                    routeId: assignedRoute.id,
-                                                    vanId: vanRef.current?.id || '',
-                                                    nextStopId: endStop.id,
-                                                    nextStopName: endStop.name,
-                                                    arrivalStatus: 'en_route'
-                                                });
-                                            }
-                                        }, 1000 / fps);
-                                    } else {
-                                        alert("End of Route Reached");
-                                        setIsDriving(false);
-                                        setCurrentStopIndex(0);
-                                        locationService.updateLocation(user?.uid || '', {
-                                            busId: user?.uid || '',
-                                            lat: 0,
-                                            lng: 0,
-                                            routeId: '',
-                                            updatedAt: Date.now(),
-                                            isOnline: false
-                                        } as any);
-                                    }
-                                }}
-                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-900/20 flex flex-col items-center justify-center gap-1 transition-all active:scale-95"
-                            >
-                                <Navigation size={24} />
-                                <span className="text-sm">{currentStopIndex < (assignedRoute.stops?.length || 0) - 1 ? 'NEXT STOP' : 'FINISH TRIP'}</span>
-                            </button>
-
-                            <button
-                                onClick={() => {
-                                    if (confirm("End trip and go offline?")) {
-                                        setIsDriving(false);
-                                        setCurrentStopIndex(0);
-                                        locationService.updateLocation(user?.uid || '', {
-                                            busId: user?.uid || '',
-                                            lat: 0,
-                                            lng: 0,
-                                            routeId: '',
-                                            updatedAt: Date.now(),
-                                            isOnline: false
-                                        } as any);
-                                    }
-                                }}
-                                className="col-span-2 mt-2 py-3 text-red-400 text-xs font-bold uppercase tracking-widest hover:bg-red-500/10 rounded-xl border border-red-500/20 transition-colors"
-                            >
-                                Stop Trip & Go Offline
-                            </button>
-                        </div>
-                    )}
+                                <button
+                                    onClick={() => {
+                                        if (confirm("End trip and go offline?")) {
+                                            setIsDriving(false);
+                                            setCurrentStopIndex(0);
+                                            locationService.updateLocation(user?.uid || '', {
+                                                busId: user?.uid || '',
+                                                lat: 0,
+                                                lng: 0,
+                                                routeId: '',
+                                                updatedAt: Date.now(),
+                                                isOnline: false
+                                            } as any);
+                                        }
+                                    }}
+                                    className="mt-1 py-2 text-red-400 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/10 rounded-lg border border-red-500/20 transition-colors w-full"
+                                >
+                                    Stop Trip & Go Offline
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
