@@ -22,7 +22,7 @@ const DriverDashboard = () => {
 
     // Location State
     const [location, setLocation] = useState<[number, number] | null>(null);
-    const [watchId, setWatchId] = useState<number | null>(null);
+
 
     // Refs for accessing latest state in callbacks
     const routeRef = useRef<Route | null>(null);
@@ -155,7 +155,7 @@ const DriverDashboard = () => {
                 (err) => console.error("Location error:", err),
                 { enableHighAccuracy: true, maximumAge: 0 }
             );
-            setWatchId(id);
+
 
             return () => {
                 navigator.geolocation.clearWatch(id);
